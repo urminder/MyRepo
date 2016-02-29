@@ -1,0 +1,160 @@
+<apex:page extensions="DeliveryController" sidebar="false" standardController="Opportunity" title="{!deliveryName}">
+    <script>
+    function setFocusOnLoad() {}
+    function isNumberKey(evt) {
+        evt = (evt) ? evt : window.event;
+        var charCode = (evt.which) ? evt.which : event.keyCode
+        if (charCode == 13) {
+            return false;
+        }
+        if (charCode > 31 && (charCode < 48 || charCode > 57)) {
+            return false;
+        }
+        return true;
+    }
+    function hideSearchPanel() {
+        document.getElementById('bvrgSearch').style.display = 'none';
+        document.getElementById('bvrgDelivered').style.display = '';
+    }
+    function showSearchPanel() {
+        document.getElementById('bvrgSearch').style.display = '';
+        document.getElementById('bvrgDelivered').style.display = 'none';
+    }
+    function searchBeverages(searchStr,evt) {
+        evt = (evt) ? evt : window.event;
+        var charCode = (evt.which) ? evt.which : event.keyCode
+        if(charCode == 13) {    
+            searchForBeverages(searchStr);
+            return false;
+        } else {
+            return true;
+        }
+    }
+    var oldPubId;
+    function refreshDetails(elmId) {
+        if(document.getElementById(elmId).value != '') {
+            var pubId = document.getElementById(elmId + '_lkid').value;
+            if(oldPubId != pubId) {
+                refreshData(pubId);
+                oldPubId = pubId;    
+            }
+        }
+    }
+    </script>
+    <apex:form id="frm">
+        <apex:actionstatus id="myStatus">
+            <apex:facet name="start">
+                <div class="waitingSearchDiv" id="el_loading" style="background-color: #fbfbfb;
+                                                                     height: 100%;opacity:0.65;width:100%;"> 
+                    <div class="waitingHolder" style="top: 325px; width: 91px;">
+                        <img class="waitingImage" src="/img/loading.gif" title="Please Wait..." />
+                        <span class="waitingDescription">Please Wait...</span> 
+                    </div>
+                </div>
+            </apex:facet>
+        </apex:actionstatus>
+        <apex:pageMessages id="msg"/> 
+        
+        <apex:actionFunction action="{!searchForBeverages}" name="searchForBeverages" reRender="searchPanel" status="myStatus">
+            <apex:param assignTo="{!searchStr}" value="" name="fName"/>
+        </apex:actionFunction>
+        <apex:actionFunction action="{!init}" name="refreshData" reRender="frm" status="myStatus">
+            <apex:param assignTo="{!pubId}" value="" name="fParam"/>
+        </apex:actionFunction>
+        
+        <apex:pageBlock title="{!$Label.DELIVERY_INFO_HEADER}">
+            <apex:pageBlockButtons >
+                <apex:commandButton value="Cancel" action="{!cancel}"/>
+                <apex:commandButton value="Save" action="{!save}"/>
+                <apex:commandButton value="Submit" action="{!submitRecord}"/>
+            </apex:pageBlockButtons>
+            <apex:pageBlockSection columns="3">
+                <apex:pageBlockSection columns="1">
+                    <apex:outputField value="{!delivery.AccountId}" rendered="{!!isNewDelivery}"/>
+                    <apex:inputField value="{!delivery.AccountId}" rendered="{!isNewDelivery}" onchange="refreshDetails(this.id);">
+                        
+                    </apex:inputField>
+                    <apex:inputField value="{!delivery.CloseDate}"/>
+                </apex:pageBlockSection>
+                <apex:outputText label="Delivery Address" value="{!deliveryAddress}" rendered="{!!isAddressBlank}"/>
+                <apex:map width="300px" height="200px" mapType="roadmap" zoomLevel="12"
+                          center="{!deliveryAddress}" rendered="{!!isAddressBlank}">
+                    <apex:mapMarker title="{!delivery.Account.Name}" position="{!deliveryAddress}">
+                    </apex:mapMarker> 
+                </apex:map>
+            </apex:pageBlockSection>
+            <apex:pageBlockSection columns="1">
+                <apex:tabPanel width="100%" switchType="client">
+                    <apex:tab label="{!$Label.PICK_UP_TAB_NAME}" >
+                        <apex:pageBlock title="{!$Label.PICK_UP_HEADER}">
+                            <apex:outputText value="{!$Label.NO_RECORDS_MSG}" rendered="{!pickupBeverages.size == 0}"></apex:outputText>
+                            <apex:pageBlockTable value="{!pickupBeverages}" var="bvrg" rendered="{!pickupBeverages.size!= 0}">
+                                <apex:column headerValue="Quantity">
+                                    <apex:outputPanel >
+                                        <div class="requiredInput">
+                                            <div class="requiredBlock"></div>
+                                            <apex:inputText value="{!bvrg.newQuantity}" onkeypress="return isNumberKey(event);"/>
+                                        </div>
+                                    </apex:outputPanel>
+                                    
+                                </apex:column>
+                                <apex:column value="{!bvrg.product.Name}" headerValue="Beverage"/>
+                                <apex:column value="${!bvrg.listPrice}" headerValue="List Price"/>
+                                <apex:column value="{!bvrg.product.Description}" headerValue="Beverage Description"/>
+                            </apex:pageBlockTable>
+                        </apex:pageBlock>
+                    </apex:tab>
+                    <apex:tab label="{!$Label.DELIVERY_TAB_NAME}">
+                        <div id="bvrgDelivered">
+                            <apex:pageBlock title="{!$Label.BEVERAGE_DELIVERED_HEADER}" rendered="{!deliveredBeverages.size != 0}">
+                                <apex:pageBlockButtons location="top">
+                                    <input type="button" onclick="showSearchPanel();" value="Search for Beverages" class=" btn"/>
+                                </apex:pageBlockButtons>
+                                <apex:pageBlockTable value="{!deliveredBeverages}" var="bvrg">
+                                    <apex:column headerValue="Actions">
+                                        <apex:commandButton value="Delete" action="{!deleteItem}" reRender="frm" status="myStatus">
+                                            <apex:param assignTo="{!selectedItemToDel}" name="fParam" value="{!bvrg.pbeId}"/>
+                                        </apex:commandButton>
+                                    </apex:column> 
+                                    <apex:column headerValue="Quantity">
+                                        <apex:outputPanel >
+                                            <div class="requiredInput">
+                                                <div class="requiredBlock"></div>
+                                                <apex:inputText value="{!bvrg.newQuantity}" onkeypress="return isNumberKey(event);"/>
+                                            </div>
+                                        </apex:outputPanel>
+                                    </apex:column>
+                                    <apex:column value="{!bvrg.product.Name}" headerValue="Beverage"/>
+                                    <apex:column value="${!bvrg.listPrice}" headerValue="List Price"/>
+                                    <apex:column value="{!bvrg.product.Description}" headerValue="Beverage Description"/>
+                                </apex:pageBlockTable>
+                            </apex:pageBlock>
+                        </div>
+                        <div id="bvrgSearch" style="display:{!IF(deliveredBeverages.size != 0,'none','')}">
+                            <apex:pageBlock title="Search for Beverages:" id="searchPanel">
+                                <div style="padding-bottom:10px">
+                                    Type part of beverage name or desription and press <b>&lt;Enter&gt;</b>: &nbsp;
+                                    <apex:inputText style="width:300px;" onkeypress="return searchBeverages(this.value);"/>  
+                                </div>
+                                <div style="height:400px;overflow:auto">
+                                    <apex:outputText rendered="{!allBeverages.size == 0}" value="{!$Label.NO_RECORDS_MSG}"></apex:outputText>
+                                    <apex:outputText style="color:red;" value="{!$Label.SPECIFIC_DETAILS_MSG}" rendered="{!allBeverages.size > 99}"></apex:outputText>
+                                    <apex:pageBlockTable value="{!allBeverages}" var="bvrg" rendered="{!allBeverages.size != 0}">
+                                        <apex:column headerValue="Actions">
+                                            <apex:commandButton value="Add To Delivery" oncomplete="hideSearchPanel();" action="{!addToDelivery}" reRender="frm" status="myStatus">
+                                                <apex:param assignTo="{!selectedBeverage}" value="{!bvrg.product.Id}" name="firstParam"/>
+                                            </apex:commandButton>
+                                        </apex:column>
+                                        <apex:column value="{!bvrg.product.Name}" headerValue="Beverage Name"/>
+                                        <apex:column value="${!bvrg.listPrice}" headerValue="List Price"/>
+                                        <apex:column value="{!bvrg.product.Description}" headerValue="Beverage Description"/>
+                                    </apex:pageBlockTable>
+                                </div>
+                            </apex:pageBlock>
+                        </div>
+                    </apex:tab>
+                </apex:tabPanel>
+            </apex:pageBlockSection> 
+        </apex:pageBlock>
+    </apex:form>
+</apex:page>
